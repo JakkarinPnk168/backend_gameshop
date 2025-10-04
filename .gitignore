@@ -1,0 +1,14 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Firebase service key
+serviceAccountKey.json
+
+# ZIP files
+*.zip
+
+# Git backup folder
+gameshopweb_backend.git/
