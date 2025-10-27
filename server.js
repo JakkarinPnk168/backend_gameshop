@@ -1279,8 +1279,10 @@ app.post("/api/orders/buy", authenticateToken, async (req, res) => {
 
     const [userDoc, gameDoc] = await Promise.all([userRef.get(), gameRef.get()]);
 
-    if (!userDoc.exists) return res.status(404).json({ success: false, message: "User not found" });
-    if (!gameDoc.exists) return res.status(404).json({ success: false, message: "Game not found" });
+    if (!userDoc.exists)
+      return res.status(404).json({ success: false, message: "User not found" });
+    if (!gameDoc.exists)
+      return res.status(404).json({ success: false, message: "Game not found" });
 
     const user = userDoc.data();
     const game = gameDoc.data();
@@ -1292,9 +1294,10 @@ app.post("/api/orders/buy", authenticateToken, async (req, res) => {
     const orderRef = db.collection("orders").doc();
 
     await db.runTransaction(async (transaction) => {
-
+      // ✅ หักเงิน
       transaction.update(userRef, { wallet: user.wallet - game.price });
 
+      // ✅ สร้างออเดอร์ใหม่
       transaction.set(orderRef, {
         userId,
         gameId,
@@ -1303,12 +1306,17 @@ app.post("/api/orders/buy", authenticateToken, async (req, res) => {
         price: game.price,
         status: "completed",
         redeemCode: "",
-        // createdAt: new Date()
-        createdAt: FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp(),
       });
 
-      // 3️⃣ เพิ่มยอดขายเกม
+      // ✅ เพิ่มยอดขายเกม
       transaction.update(gameRef, { totalSold: (game.totalSold || 0) + 1 });
+
+      // ✅ เพิ่มเกมเข้า Library
+      const libraryRef = db.collection(`users/${userId}/library`).doc(gameId);
+      transaction.set(libraryRef, {
+        addedAt: FieldValue.serverTimestamp(),
+      });
     });
 
     const updatedUserDoc = await userRef.get();
@@ -1317,14 +1325,21 @@ app.post("/api/orders/buy", authenticateToken, async (req, res) => {
     res.json({
       success: true,
       newWallet,
-      order: { id: orderRef.id, gameName: game.name, price: game.price, status: "completed" }
+      order: {
+        id: orderRef.id,
+        gameName: game.name,
+        price: game.price,
+        status: "completed",
+      },
+      message: "ซื้อเกมสำเร็จและเพิ่มในคลังเรียบร้อย ✅",
     });
-
   } catch (error) {
     console.error("Buy Game Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 });
+
+
 
 //=====================< รายการสินค้าที่อยู่ในตะกร้าของผู้ใช้ >=======================//
 app.get("/api/users/cart", authenticateToken, async (req, res) => {
